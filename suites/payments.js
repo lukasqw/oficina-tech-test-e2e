@@ -131,46 +131,46 @@ async function pollMpOrderId(BASE_URL, orderId, headers, maxMs = 15000) {
 }
 
 async function waitForEnter(prompt) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  return new Promise((resolve) =>
-    rl.question(prompt, () => {
-      rl.close();
-      resolve();
-    }),
+  const tty = Boolean(process.stdout.isTTY);
+  const yl  = tty ? '\x1b[33m' : '';
+  const rs  = tty ? '\x1b[0m'  : '';
+  const rl  = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise(resolve =>
+    rl.question(`  ${yl}▶  ${prompt}${rs} `, () => { rl.close(); resolve(); }),
   );
 }
 
-function printPaymentInstructions(
-  paymentUrl,
-  cardName,
-  cardNumber,
-  cvv,
-  holderName,
-  cpf,
-) {
-  const LINE = "─".repeat(60);
-  console.log(`\n  ${LINE}`);
-  console.log(`  💳  AÇÃO NECESSÁRIA — Pague no sandbox do Mercado Pago`);
-  console.log(`  ${LINE}`);
-  console.log(`  URL de pagamento:`);
-  console.log(`  ${paymentUrl}`);
-  console.log(`\n  Cartão : ${cardName}`);
-  console.log(`  Número : ${cardNumber}`);
-  console.log(`  CVV    : ${cvv}`);
-  console.log(`  Validade: 11/30`);
-  console.log(`  Titular: ${holderName}  (define o resultado)`);
-  if (cpf) console.log(`  CPF    : ${cpf}`);
-  console.log(`\n  Buyer de teste: TESTUSER8247756854211801431 / ZF9BfBakNr`);
-  console.log(`  ${LINE}\n`);
+function printPaymentInstructions(paymentUrl, cardName, cardNumber, cvv, holderName, cpf) {
+  const tty = Boolean(process.stdout.isTTY);
+  const cy = tty ? '\x1b[36m' : '';
+  const bo = tty ? '\x1b[1m'  : '';
+  const di = tty ? '\x1b[2m'  : '';
+  const yl = tty ? '\x1b[33m' : '';
+  const rs = tty ? '\x1b[0m'  : '';
+
+  const W   = 62;
+  const bar = '─'.repeat(W);
+  const ln  = (text = '') => console.log(`${cy}  │${rs} ${text}`);
+
+  console.log(`\n${cy}  ┌${bar}┐${rs}`);
+  ln(`${yl}${bo}⚠  AÇÃO NECESSÁRIA — Pague no sandbox do Mercado Pago${rs}`);
+  ln();
+  ln(`${di}URL:${rs} ${paymentUrl}`);
+  ln();
+  ln(`Cartão   ${bo}${cardName}${rs}`);
+  ln(`Número   ${bo}${cardNumber}${rs}`);
+  ln(`CVV      ${bo}${cvv}${rs}`);
+  ln(`Validade ${bo}11/30${rs}`);
+  ln(`Titular  ${bo}${holderName}${rs}  ${di}← define o resultado${rs}`);
+  if (cpf) ln(`CPF      ${bo}${cpf}${rs}`);
+  ln();
+  ln(`${di}Buyer: TESTUSER8247756854211801431  /  ZF9BfBakNr${rs}`);
+  console.log(`${cy}  └${bar}┘${rs}\n`);
 }
 
 // ─── Suite principal ──────────────────────────────────────────────────────────
 
 module.exports = async function payments(BASE_URL, ctx) {
-  console.log("\n💳 Pagamento Mercado Pago");
 
   const h = () => (ctx.token ? { Authorization: `Bearer ${ctx.token}` } : {});
   const webhookSecret = process.env.MP_WEBHOOK_SECRET;
@@ -231,9 +231,12 @@ module.exports = async function payments(BASE_URL, ctx) {
       {},
       { headers: h() },
     );
-    console.log(
-      `     [advance] ${label} → HTTP ${status}${status >= 400 ? " body: " + JSON.stringify(data) : ""}`,
-    );
+    const tty = Boolean(process.stdout.isTTY);
+    const di  = tty ? '\x1b[2m' : '';
+    const rs  = tty ? '\x1b[0m' : '';
+    const rd  = tty ? '\x1b[31m': '';
+    const detail = status >= 400 ? ` ${rd}${JSON.stringify(data)}${rs}` : '';
+    console.log(`${di}advance${rs} ${label} → ${status}${detail}`);
     return { status, data };
   }
 
@@ -266,9 +269,10 @@ module.exports = async function payments(BASE_URL, ctx) {
     await advanceStep(orderId, "SERVICE_IN_PROGRESS→SERVICE_COMPLETED");
     await advanceStepRetrying(orderId, "SERVICE_COMPLETED→AWAITING_PAYMENT");
     const result = await pollMpOrderId(BASE_URL, orderId, h());
-    console.log(
-      `     [mp_order] mpOrderId=${result.mpOrderId} paymentUrl=${result.paymentUrl}`,
-    );
+    const tty2 = Boolean(process.stdout.isTTY);
+    const di2  = tty2 ? '\x1b[2m' : '';
+    const rs2  = tty2 ? '\x1b[0m' : '';
+    console.log(`${di2}mp_order_id${rs2} ${result.mpOrderId}`);
     return result;
   }
 
@@ -487,8 +491,10 @@ module.exports = async function payments(BASE_URL, ctx) {
 
   // ─────────────────────────────────────────────────────────────────────────
   // 7. Estorno externo → CANCELED (webhook "refunded" do MP)
+  // DESABILITADO: requer ação manual no painel do vendedor MP
   // ─────────────────────────────────────────────────────────────────────────
 
+  /*
   section("Fluxo 3 — Estorno externo pelo painel MP → CANCELED");
 
   let orderIdRefund = null;
@@ -540,4 +546,5 @@ module.exports = async function payments(BASE_URL, ctx) {
     need(orderIdRefund, "orderIdRefund");
     await pollStatus(BASE_URL, orderIdRefund, h(), "CANCELED", 60000);
   });
+  */
 };

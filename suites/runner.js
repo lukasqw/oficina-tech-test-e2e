@@ -27,6 +27,7 @@ function eraseLine() {
 let passed = 0;
 let failed = 0;
 const failures = [];
+let _suiteSnapshot = { passed: 0, failed: 0 };
 
 // ─── test() ──────────────────────────────────────────────────────────────────
 async function test(name, fn) {
@@ -141,7 +142,24 @@ function need(value, name) {
 
 // ─── section() ───────────────────────────────────────────────────────────────
 function section(label) {
-  console.log(`\n  ${c.cyan}>>${c.reset} ${c.bold}${label}${c.reset}`);
+  console.log(`\n  ${c.cyan}│${c.reset}  ${c.bold}${label}${c.reset}`);
+}
+
+// ─── suiteStart() / suiteEnd() ───────────────────────────────────────────────
+function suiteStart(label) {
+  const fill = Math.max(2, 54 - label.length);
+  console.log(`\n${c.cyan}  ┌─ ${c.bold}${label}${c.reset}${c.cyan} ${'─'.repeat(fill)}┐${c.reset}`);
+  _suiteSnapshot = { passed, failed };
+}
+
+function suiteEnd() {
+  const dp = passed - _suiteSnapshot.passed;
+  const df = failed  - _suiteSnapshot.failed;
+  const passStr = `${c.green}✓ ${dp} passed${c.reset}`;
+  const failStr = df > 0
+    ? `  ${c.red}✗ ${df} failed${c.reset}`
+    : `  ${c.dim}✗ 0 failed${c.reset}`;
+  console.log(`${c.cyan}  └─${c.reset} ${passStr}${failStr}`);
 }
 
 // ─── randomCpf() ─────────────────────────────────────────────────────────────
@@ -161,4 +179,4 @@ function getStats() {
   return { passed, failed, failures };
 }
 
-module.exports = { test, assertStatus, need, randomCpf, getStats, section };
+module.exports = { test, assertStatus, need, randomCpf, getStats, section, suiteStart, suiteEnd };

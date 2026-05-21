@@ -69,10 +69,17 @@ const services            = require('./suites/services');
 const serviceOrders       = require('./suites/service-orders');
 const payments            = require('./suites/payments');
 const cleanup             = require('./suites/cleanup');
-const { getStats }        = require('./suites/runner');
+const { getStats, suiteStart, suiteEnd } = require('./suites/runner');
 
 // ─── Shared state across suites ──────────────────────────────────────────────
 const ctx = {};
+
+// ─── runSuite() ───────────────────────────────────────────────────────────────
+async function runSuite(label, fn, ...args) {
+  suiteStart(label);
+  await fn(...args);
+  suiteEnd();
+}
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
@@ -86,30 +93,30 @@ async function main() {
   console.log(`${c.cyan}║${c.reset}${c.bold} ${title} ${c.reset}${c.cyan}║${c.reset}`);
   console.log(`${c.cyan}╚${bar}╝${c.reset}`);
   console.log(`\n  ${c.dim}URL  ${c.reset} ${BASE_URL}`);
-  console.log(`  ${c.dim}Login${c.reset} CPF ${LOGIN_CPF}\n`);
+  console.log(`  ${c.dim}Login${c.reset} CPF ${LOGIN_CPF}`);
 
   // Suites
-  await healthChecks(BASE_URL);
-  await authentication(BASE_URL, ctx, LOGIN_CPF, LOGIN_PASS);
+  await runSuite('Health Checks',          healthChecks,         BASE_URL);
+  await runSuite('Autenticação',           authentication,       BASE_URL, ctx, LOGIN_CPF, LOGIN_PASS);
 
   if (!ctx.token) {
     console.log(`\n${c.yellow}⚠️  Login falhou — abortando testes autenticados.${c.reset}\n`);
     process.exit(1);
   }
 
-  await users(BASE_URL, ctx);
-  await customers(BASE_URL, ctx);
-  await vehicles(BASE_URL, ctx);
-  await productsAndInventory(BASE_URL, ctx);
-  await services(BASE_URL, ctx);
-  await serviceOrders(BASE_URL, ctx);
-  await payments(BASE_URL, ctx);
-  await cleanup(BASE_URL, ctx);
+  await runSuite('Usuários',              users,               BASE_URL, ctx);
+  await runSuite('Clientes',             customers,           BASE_URL, ctx);
+  await runSuite('Veículos',             vehicles,            BASE_URL, ctx);
+  await runSuite('Produtos & Inventário', productsAndInventory, BASE_URL, ctx);
+  await runSuite('Serviços',             services,            BASE_URL, ctx);
+  await runSuite('Ordens de Serviço',    serviceOrders,       BASE_URL, ctx);
+  await runSuite('Pagamentos',           payments,            BASE_URL, ctx);
+  await runSuite('Cleanup',              cleanup,             BASE_URL, ctx);
 
   // Summary
-  const elapsed             = ((Date.now() - start) / 1000).toFixed(1);
+  const elapsed = ((Date.now() - start) / 1000).toFixed(1);
   const { passed, failed, failures } = getStats();
-  const total               = passed + failed;
+  const total = passed + failed;
 
   console.log(`\n${c.cyan}${'═'.repeat(W + 2)}${c.reset}`);
   console.log(
